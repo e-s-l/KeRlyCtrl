@@ -9,7 +9,8 @@ import json
 from umqttsimple import MQTTClient
 from config import *
 
-#########################
+#################
+### CLASSES
 
 class RelaySwitch:
     def __init__(self, pin):
@@ -67,7 +68,8 @@ class RelayController:
             return response
         return None
 
-#####################################################
+###################
+### FUNCTIONS
 
 def w5x00_init():
 
@@ -95,6 +97,16 @@ def time_init():
     print("Initialising NTP sync.")
     ntptime.settime()
 
+def reset():
+    # Hard
+    # machine.reset()
+    # Soft
+    sys.exit()
+
+############
+### mqtt ###
+############
+
 def sub_cb(topic, msg, rc1, rc2):
 
     command = msg.decode('utf-8').strip().upper()
@@ -114,15 +126,6 @@ def sub_cb(topic, msg, rc1, rc2):
     elif topic == sub_topic_3:
         if command in rc2.commands:
             rc2.execute(command)
-
-
-#############
-
-def reset():
-    # Hard
-    # machine.reset()
-    # Soft
-    sys.exit()
 
 def mqtt_connect(rc1,rc2):
     attempts = 3
@@ -160,14 +163,16 @@ def make_status_msg(rc1, rc2):
 
     return msg
 
+############
+### main ###
+############
 
 def main():
-
-    time_init()
 
     while True:
         try:
             w5x00_init()
+            time_init()
 
             # set-up relays and their controllers
             relay1 = RelaySwitch(6)
