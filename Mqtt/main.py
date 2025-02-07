@@ -1,7 +1,7 @@
 import sys
 import time
 import ntptime
-from machine import Pin, SPI
+from machine import Pin, SPI, reset
 import binascii
 import network
 import json
@@ -97,11 +97,20 @@ def time_init():
     print("Initialising NTP sync.")
     ntptime.settime()
 
-def reset():
-    # Hard
-    # machine.reset()
-    # Soft
-    sys.exit()
+def reset_device(kind):
+
+    print(f"{kind} resetting the device")
+
+    kind = kind.upper()
+
+    if kind == 'HARD':
+        # Hard
+        reset()
+    elif kind == "SOFT":
+        # Soft
+        sys.exit()
+    else:
+        print("erroneous reset type requested.")
 
 ############
 ### mqtt ###
@@ -142,7 +151,7 @@ def mqtt_connect(rc1,rc2):
             time.sleep(5)
 
     print("Max retries reached. Resetting...")
-    reset()
+    reset_device('soft')
 
 
 def client_init(rc1, rc2):
@@ -205,8 +214,8 @@ def main():
 
         except Exception as e:
             print(f"Critical error: {e}. Resetting...")
-            time.sleep(5)
-            sys.exit()
+            time.sleep(1)
+            reset_device('soft')
 
 
 if __name__ == "__main__":
