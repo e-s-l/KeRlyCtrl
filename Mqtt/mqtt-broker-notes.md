@@ -7,6 +7,7 @@
 brew install mosquitto
 
 brew services start mosquitto
+
 brew services info mosquitto
 
 ### Config
