@@ -24,20 +24,6 @@ gateway = '192.168.1.1'
 dns = '8.8.8.8'
 
 """
-static_ip = '131.217.63.68'
-netmask = '255.255.255.0'
-gateway = '131.217.63.129'
-dns = '131.217.0.19'
-"""
-
-"""
-static_ip = '10.63.63.2'
-netmask = '255.255.255.0'
-gateway = '10.63.63.1'
-dns = '131.217.0.19'
-"""
-
-"""
 # command options
 COMMANDS = '''
             COMMANDS:
