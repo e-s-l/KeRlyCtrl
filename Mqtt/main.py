@@ -53,7 +53,6 @@ class RelayController:
             "ON": self.relay.on,
             "OFF": self.relay.off,
             "TOGGLE": self.relay.toggle,
-            "HELP": self.print_commands
         }
 
     def get_status(self):
@@ -67,13 +66,6 @@ class RelayController:
             self.mqtt_client.publish(pub_topic, response_msg)
             return response
         return None
-
-    def print_commands(self):
-        commands = "\nCOMMANDS:\n" + "\n".join(
-            [f"[{num}] {name}: {desc}" for num, (name, desc, _) in
-             sorted(self.commands.items(), key=lambda x: int(x[0]))]
-        )
-        return commands
 
 #####################################################
 
