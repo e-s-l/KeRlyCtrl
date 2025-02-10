@@ -169,6 +169,7 @@ def make_status_msg(rc1, rc2):
     #msg = f"STATUS: rly1 = {rc1.get_status()}, rly2 = {rc2.get_status()}"
     # Better
     msg = json.dumps({'time': time.time(), 'relay_1': rc1.get_status(), 'relay_2': rc2.get_status()})
+    # use vars(object) or objet.__dict__ for better yet
 
     return msg
 
