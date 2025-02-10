@@ -341,3 +341,54 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+"""
+Example Config:
+
+###############
+### Network ###
+###############
+
+# use static ip address
+static = True
+
+# network configuration
+static_ip = '169.254.244.99'
+netmask = '255.255.0.0'
+gateway = '0.0.0.0'
+dns = '8.8.8.8'
+
+############
+### MQTT ###
+############
+
+# The brooker deets:
+mqtt_server = '169.254.234.191'
+user = 'test'
+word = 'word'
+port = 1883
+
+# The client deets:
+client_id = "test"
+
+##############
+### topics ###
+##############
+
+# NOTE: the basic af client we're using needs these to be byte arrays
+
+# subscribe
+sub_topic_1 = b'test/control'
+sub_topic_2 = b'test/control/led'
+
+# publish
+pub_topic = b'test/status'
+
+###############
+### CONTROL ###
+###############
+
+status_update_period = 1
+
+"""
