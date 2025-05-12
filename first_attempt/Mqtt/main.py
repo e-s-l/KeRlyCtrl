@@ -1,16 +1,18 @@
 import sys
 import time
+import socket
 import ntptime
 from machine import Pin, SPI, reset
 import binascii
 import network
 import json
-
+import gc
 from umqttsimple import MQTTClient
 from config import *
 
-#################
-### CLASSES
+###############
+### CLASSES ###
+###############
 
 class RelaySwitch:
     def __init__(self, pin):
@@ -23,7 +25,6 @@ class RelaySwitch:
 
     def update(self):
         self.state = self.get_state()
-        #print(self.status())
 
     def status(self):
         return f"{self.state[0]}"
@@ -57,19 +58,30 @@ class RelayController:
         }
 
     def get_status(self):
+        """
+        Get the state of the relay associated with this controller.
+        """
+
         status = self.relay.status()
         return status
 
     def execute(self, command_input):
+        """
+        If passed a valid command, execute it and report back.
+        """
+
         if command_input in self.commands:
             response = self.commands[command_input]()
-            response_msg = f"{json.dumps({'time': time.time(), 'response': response})}"
-            self.mqtt_client.publish(pub_topic, response_msg)
+            self.mqtt_client.publish(pub_topic, f"{json.dumps({'time': time.time(), 'response': response})}")
             return response
+
         return None
 
-###################
-### FUNCTIONS
+##################
+### FUNCTIONS ###
+#################
+
+# set-up
 
 def w5x00_init():
 
@@ -89,56 +101,93 @@ def w5x00_init():
         print("Waiting for network...")
 
     print("Network connected:", nic.ifconfig()[0])
+
+    # some (probably) unnecessary extra info...
     mac = binascii.hexlify(nic.config('mac'), ':').decode()
     print("Device MAC:", mac)
 
 def time_init():
+    """
+    Connect to the NTP server, and set the time.
+    Will this time drift off? Does settime() need to be called more regularly?
+    """
 
     print("Initialising NTP sync.")
+
+    # a superfluous test...
+    print("Testing connection to NTP server...")
+    server = socket.getaddrinfo(ntp_server, 123)
+    print(f"Socket address: {server}")
+
+    print("Setting mqtt_server to be NTP host...")
+    ntptime.host = ntp_server
     ntptime.settime()
 
+# utilities
+
+def show_memory():
+    """
+    A little debug script, can probably delete this in deployment.
+    """
+
+    gc.collect()
+    print(f"free: {gc.mem_free()} bytes")
+    print(f"allocated: {gc.mem_alloc()} bytes")
+
+
 def reset_device(kind):
+    """
+    Restart the device-program, either the software or hardware.
+    """
 
     print(f"{kind} resetting the device")
 
     kind = kind.upper()
 
-    if kind == 'HARD':
+    if kind == "HARD":
         # Hard
         reset()
     elif kind == "SOFT":
         # Soft
         sys.exit()
     else:
-        print("erroneous reset type requested.")
+        print("Erroneous reset type requested.")
 
 ############
 ### mqtt ###
 ############
 
 def sub_cb(topic, msg, rc1, rc2):
+    """
+    Subscription callbacks.
+    Do something different for each topic...
+    """
 
     command = msg.decode('utf-8').strip().upper()
     print(f"<- {topic.decode()}: {command}")
 
-    # control
+    # test/control
     if topic == sub_topic_1:
-        # something here....
+        # someday, something here...
         pass
 
-    # relay1
+    # test/control/relay1
     elif topic == sub_topic_2:
         if command in rc1.commands:
             rc1.execute(command)
 
-    # relay2
+    # test/control/relay2
     elif topic == sub_topic_3:
         if command in rc2.commands:
             rc2.execute(command)
 
 def mqtt_connect(rc1,rc2):
-    attempts = 3
-    for i in range(attempts):
+    """
+    Set the device to be a mqtt client to the broker.
+    If  this fails more than broker_connect_attempts, softly reset the device, and so begin again.
+    """
+
+    for i in range(broker_connect_attempts):
         try:
             print(f"Attempt {i + 1}: Connecting to MQTT Broker...")
             client = MQTTClient(client_id, server=mqtt_server, port=port, user=user, password=word, keepalive=60)
@@ -155,6 +204,9 @@ def mqtt_connect(rc1,rc2):
 
 
 def client_init(rc1, rc2):
+    """
+    For each relay, set up the client (see above), and assign as member variables.
+    """
 
     print("Initialising mqtt client.")
     client = mqtt_connect(rc1, rc2)
@@ -164,14 +216,12 @@ def client_init(rc1, rc2):
     return client
 
 def make_status_msg(rc1, rc2):
+    """
+    Return some kind of summary of the state of the relays.
+    Maybe better to use vars(object) or object.__dict__
+    """
 
-    # Basic
-    #msg = f"STATUS: rly1 = {rc1.get_status()}, rly2 = {rc2.get_status()}"
-    # Better
-    msg = json.dumps({'time': time.time(), 'relay_1': rc1.get_status(), 'relay_2': rc2.get_status()})
-    # use vars(object) or objet.__dict__ for better yet
-
-    return msg
+    return json.dumps({'time': time.time(), 'relay_1': rc1.get_status(), 'relay_2': rc2.get_status()})
 
 ############
 ### main ###
@@ -185,29 +235,32 @@ def main():
             time_init()
 
             # set-up relays and their controllers
-            relay1 = RelaySwitch(6)
-            relay2 = RelaySwitch(7)
+            relay1 = RelaySwitch(relay_1_pin)
+            relay2 = RelaySwitch(relay_2_pin)
             rc1 = RelayController(relay1)
             rc2 = RelayController(relay2)
 
             client = client_init(rc1, rc2)
+            # subscriptions
+            client.subscribe(sub_topic_1)
+            client.subscribe(sub_topic_2)
+            client.subscribe(sub_topic_3)
 
             last_publish = time.time()
 
             while True:
                 try:
-
-                    client.subscribe(sub_topic_1)
-                    client.subscribe(sub_topic_2)
-                    client.subscribe(sub_topic_3)
+                    client.check_msg()
 
                     if time.time() - last_publish > status_update_period:
                         status_msg = make_status_msg(rc1,rc2)
                         client.publish(pub_topic, status_msg)
                         print(f"-> {pub_topic.decode()}: {status_msg}")
+                        gc.collect()
+
                         last_publish = time.time()
 
-                    time.sleep(1)
+                    time.sleep(response_time)
 
                 except OSError:
                     print("MQTT disconnected. Reconnecting...")
@@ -217,7 +270,6 @@ def main():
             print(f"Critical error: {e}. Resetting...")
             time.sleep(1)
             reset_device('soft')
-
 
 if __name__ == "__main__":
     main()
